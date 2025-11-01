@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { studentAPI } from "../../services/api";
+import { studentAPI } from "../../config/api"
 import { Download, FileText, TrendingUp, Clock, CheckCircle, AlertCircle, RefreshCw, Info } from "lucide-react";
 
 

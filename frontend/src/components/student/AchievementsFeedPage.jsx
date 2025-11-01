@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ThumbsUp, Star, TrendingUp, Users, AlertCircle } from "lucide-react";
 import { enhancedEndorsementScoring, generateEndorsementReport } from "../../utils/peerEndorsement";
-import { studentAPI } from "../../services/api";
+import { studentAPI } from "../../config/api";
 
 function AchievementsFeedPage({ currentUser = "Current User" }) {
   const [feed, setFeed] = useState([]);

@@ -8,7 +8,7 @@ const getBaseURL = () => {
   }
   
   // In development (local)
-  return 'http://localhost:8000';
+  return 'http://127.0.0.1:8000';
 };
 
 export const API_BASE_URL = getBaseURL();
@@ -19,88 +19,172 @@ export const API_ENDPOINTS = {
   login: '/api/accounts/login/',
   logout: '/api/accounts/logout/',
   register: '/api/accounts/register/',
-  profile: '/api/accounts/profile/',
+  profile: '/api/accounts/me/',
+  users: '/api/accounts/all-users/',
   
   // Student endpoints
-  students: '/api/students/',
+  students: '/api/accounts/students/',
+  peers: '/api/students/peers/',
+  gpaRecords: '/api/accounts/gpa-records/',
   studentDetail: (id) => `/api/students/${id}/`,
   
-  // Add more endpoints as needed
+  // Report endpoints
+  generateReport: '/api/students/generate-report/',
+  reportStatus: (taskId) => `/api/students/report-status/${taskId}/`,
+  reports: '/api/students/reports/',
+  downloadReport: (taskId) => `/api/students/reports/${taskId}/download/`,
 };
 
-// Helper function for API calls with error handling
-export const apiCall = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
+// Save token to localStorage
+export const setToken = (token) => localStorage.setItem("token", token);
+
+// Get token from localStorage
+export const getToken = () => localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+// Remove token
+export const removeToken = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("jwtToken");
+};
+
+// Generic API request function
+export const apiRequest = async (endpoint, options = {}) => {
+  const token = getToken();
   
-  const defaultOptions = {
+  const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
     },
-    credentials: 'include', // Include cookies for session auth
+    ...options,
   };
 
-  // Get CSRF token from cookie if it exists
-  const csrfToken = getCookie('csrftoken');
-  if (csrfToken && options.method !== 'GET') {
-    defaultOptions.headers['X-CSRFToken'] = csrfToken;
-  }
-
   try {
-    const response = await fetch(url, { ...defaultOptions, ...options });
+    console.log(`🔄 API Request: ${endpoint}`);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     
-    // Handle non-OK responses
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw {
-        status: response.status,
-        message: errorData.message || response.statusText,
-        data: errorData,
-      };
+    if (response.status === 401) {
+      removeToken();
+      window.location.href = '/login';
+      throw new Error('Authentication failed');
     }
-
-    // Return parsed JSON
-    return await response.json();
+    
+    if (response.status === 403) {
+      throw new Error(`Permission denied: You don't have access to this resource`);
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`✅ API Success: ${endpoint}`, data);
+    return data;
   } catch (error) {
-    console.error('API call failed:', error);
+    console.error(`❌ API Request Error (${endpoint}):`, error);
     throw error;
   }
 };
 
-// Helper to get CSRF token from cookie
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
+// Auth functions
+export const loginUser = async (username, password) => {
+  const response = await apiRequest(API_ENDPOINTS.login, {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  
+  if (response.access) {
+    setToken(response.access);
   }
-  return cookieValue;
-}
+  return response;
+};
 
-// Example usage in your components:
-/*
-import { apiCall, API_ENDPOINTS } from './config/api';
+export const fetchCurrentUser = async () => {
+  return await apiRequest(API_ENDPOINTS.profile);
+};
 
-// GET request
-const students = await apiCall(API_ENDPOINTS.students);
+export const fetchUsers = async () => {
+  return await apiRequest(API_ENDPOINTS.users);
+};
 
-// POST request
-const newStudent = await apiCall(API_ENDPOINTS.students, {
-  method: 'POST',
-  body: JSON.stringify({ name: 'John Doe', email: 'john@example.com' })
-});
+// Student API functions
+export const studentAPI = {
+  getStudents: async () => {
+    return await apiRequest(API_ENDPOINTS.students);
+  },
 
-// PUT request
-const updated = await apiCall(API_ENDPOINTS.studentDetail(id), {
-  method: 'PUT',
-  body: JSON.stringify({ name: 'Jane Doe' })
-});
+  getGPARecords: async () => {
+    return await apiRequest(API_ENDPOINTS.gpaRecords);
+  },
+  
+  getPeerStudents: async () => {
+    return await apiRequest(API_ENDPOINTS.peers);
+  },
 
-// DELETE request
-await apiCall(API_ENDPOINTS.studentDetail(id), { method: 'DELETE' });
-*/
+  generateReport: async (studentId, reportType = 'comprehensive') => {
+    return await apiRequest(API_ENDPOINTS.generateReport, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        student_id: studentId, 
+        report_type: reportType 
+      }),
+    });
+  },
+
+  getReportStatus: async (taskId) => {
+    return await apiRequest(API_ENDPOINTS.reportStatus(taskId));
+  },
+
+  getReports: async () => {
+    return await apiRequest(API_ENDPOINTS.reports);
+  },
+
+  downloadReport: async (taskId) => {
+    const response = await apiRequest(API_ENDPOINTS.downloadReport(taskId));
+    
+    // Create downloadable JSON file
+    const content = JSON.stringify(response, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `student-report-${taskId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+
+  pollReportStatus: async (taskId, onProgress, onComplete, onError, interval = 2000) => {
+    const poll = async () => {
+      try {
+        const status = await studentAPI.getReportStatus(taskId);
+        
+        if (onProgress) {
+          onProgress(status);
+        }
+
+        if (status.status === 'completed') {
+          if (onComplete) onComplete(status);
+          return true;
+        } else if (status.status === 'failed') {
+          if (onError) onError(status.error);
+          return true;
+        } else {
+          // Continue polling
+          setTimeout(poll, interval);
+        }
+      } catch (error) {
+        if (onError) onError(error.message);
+        return true;
+      }
+    };
+
+    poll();
+  },
+};
+
+export default apiRequest;
