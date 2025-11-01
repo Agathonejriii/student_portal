@@ -5,38 +5,35 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from django.conf import settings
+from django.http import HttpResponse
 from django.conf.urls.static import static
 from django.views.static import serve as static_serve
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+# Simple homepage view
+def home(request):
+    return HttpResponse("""
+    <h1>Student Portal API</h1>
+    <p>Welcome to the Student Portal API</p>
+    <ul>
+        <li><a href="/admin/">Admin Panel</a></li>
+        <li><a href="/api/">API</a></li>
+        <li><a href="/api/token/">Get JWT Token</a></li>
+        <li><a href="/api/accounts/">Accounts API</a></li>
+        <li><a href="/api/students/">Students API</a></li>
+    </ul>
+    """)
+
 urlpatterns = [
-    # Django Admin
+    path('', home, name='home'),  # Simple homepage
     path('admin/', admin.site.urls),
-    
-    # Your API endpoints
-    path('api/accounts/', include('accounts.urls')),
-    path('api/', include('students.urls')),
-    
-    # API endpoints that should come before catch-all
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/accounts/', include('accounts.urls')),
+    path('api/', include('students.urls')),
 ]
 
-# Serve static files in both development and production
+# Serve static files
 urlpatterns += [
-    re_path(r'^static/(?P<path>.*)$', static_serve, {'document_root': settings.STATIC_ROOT}),
-    re_path(r'^media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
-]
-
-# Serve React assets specifically
-urlpatterns += [
-    re_path(r'^assets/(?P<path>.*)$', static_serve, {'document_root': settings.STATIC_ROOT / 'assets'}),
-]
-
-# Catch-all pattern: serve React app (ONLY for non-API, non-admin, non-static routes)
-# This should be the VERY LAST pattern
-# In urls.py - use the staticfiles version
-urlpatterns += [
-    re_path(r'^(?!admin/|api/|static/|media/|assets/).*$', 
-            TemplateView.as_view(template_name='frontend/dist/index.html')),
+    path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),
 ]
