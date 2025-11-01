@@ -77,11 +77,9 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'templates',      # Primary templates directory
-            BASE_DIR / 'frontend/dist',  # React/Vue built files
-            BASE_DIR / 'staticfiles',    # Collected static files
+            BASE_DIR / 'frontend/dist',  # Vite build directory
         ],
-        'APP_DIRS': True,  # This allows Django to look for templates in installed apps
+        'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -167,8 +165,9 @@ APPEND_SLASH = False
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = []
-
+STATICFILES_DIRS = [
+    BASE_DIR / 'frontend/dist',  # This will collect index.html and assets/
+]
 # Whitenoise configuration for static files
 STORAGES = {
     "default": {
