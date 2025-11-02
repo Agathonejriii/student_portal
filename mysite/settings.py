@@ -194,20 +194,39 @@ REST_FRAMEWORK = {
     ),
 }
 
-CORS_ALLOW_ALL_ORIGINS = True  # For development - restrict in production
+# In settings.py - Replace the CORS section with this:
+
+# CORS Configuration
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    CORS_ALLOW_ALL_ORIGINS = False  # More secure than True
+else:
+    # Production settings - add your actual Render frontend URL
+    CORS_ALLOWED_ORIGINS = [
+        "https://your-frontend-domain.onrender.com",  # Replace with your actual domain
+    ]
+    CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     "GET",
     "POST",
     "PUT",
     "DELETE",
     "PATCH",
+    "OPTIONS",  # Important for preflight requests!
 ]
 CORS_ALLOW_HEADERS = [
     "content-type",
     "authorization",
     "x-csrftoken",
+    "accept",
 ]
-CORS_ALLOW_CREDENTIALS = True
 
 # Optional: Static / media files
 MEDIA_URL = '/media/'
